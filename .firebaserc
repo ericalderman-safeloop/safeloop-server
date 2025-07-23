@@ -1,0 +1,8 @@
+{
+  "projects": {
+    "default": "safeloop-f5d22",
+    "production": "safeloop-f5d22"
+  },
+  "targets": {},
+  "etags": {}
+}
