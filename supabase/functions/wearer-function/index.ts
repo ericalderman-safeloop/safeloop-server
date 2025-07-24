@@ -40,9 +40,24 @@ Deno.serve(async (req) => {
       case "validate_watch": {
         const request = data as ValidateWatchRequest
         
-        // Find account by wearer_id using the database function
+        // Find account by seven_digit_code directly from the schema
         const { data: accountData, error: accountError } = await supabaseClient
-          .rpc('get_account_by_wearer_id', { p_wearer_id: request.wearer_id })
+          .from('devices')
+          .select(`
+            seven_digit_code,
+            wearer_id,
+            wearers!inner(
+              name,
+              safeloop_account_id,
+              safeloop_accounts!inner(
+                id,
+                account_name
+              )
+            )
+          `)
+          .eq('seven_digit_code', request.wearer_id)
+          .eq('is_verified', true)
+          .single()
 
         if (accountError) {
           console.error('Error finding account:', accountError)
@@ -55,7 +70,7 @@ Deno.serve(async (req) => {
           )
         }
 
-        if (!accountData || accountData.length === 0) {
+        if (!accountData) {
           console.log('No account found for wearer_id: ' + request.wearer_id)
           return new Response(
             JSON.stringify({ success: false, message: 'No account found for the provided wearer_id' }), 
@@ -66,7 +81,13 @@ Deno.serve(async (req) => {
           )
         }
 
-        const account = accountData[0]
+        const account = {
+          account_id: accountData.wearers.safeloop_accounts.id,
+          account_name: accountData.wearers.safeloop_accounts.account_name,
+          wearer_id: accountData.seven_digit_code,
+          wearer_name: accountData.wearers.name,
+          status: 'active'
+        }
         console.log('Account found: ', account)
         return new Response(
           JSON.stringify({ success: true, message: 'Account found', account: account }), 
