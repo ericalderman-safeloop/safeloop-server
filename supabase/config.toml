@@ -1,0 +1,22 @@
+
+[functions.wearer-function]
+enabled = true
+verify_jwt = true
+import_map = "./functions/wearer-function/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/wearer-function/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/wearer-function/*.html" ]
+
+[functions.auth-listener]
+enabled = true
+verify_jwt = true
+import_map = "./functions/auth-listener/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/auth-listener/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/auth-listener/*.html" ]
