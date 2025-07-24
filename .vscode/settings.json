@@ -1,0 +1,11 @@
+{
+  "deno.enable": true,
+  "deno.unstable": true,
+  "deno.suggest.imports.hosts": {
+    "https://jsr.io": true
+  },
+  "[typescript]": {
+    "editor.defaultFormatter": "denoland.vscode-deno"
+  },
+  "deno.config": "./supabase/deno.json"
+}

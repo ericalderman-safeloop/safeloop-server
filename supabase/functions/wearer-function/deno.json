@@ -4,7 +4,9 @@
     "@supabase/functions-js": "jsr:@supabase/functions-js@2"
   },
   "compilerOptions": {
+    "allowImportingTsExtensions": true,
     "lib": ["deno.ns", "dom"],
-    "types": ["@supabase/functions-js/edge-runtime.d.ts"]
+    "noEmit": true,
+    "strict": true
   }
 }
