@@ -12,7 +12,9 @@ interface HelpRequest {
   wearer_id: string
   event: string
   resolution: string | null
-  location: string
+  location: string | null
+  location_lat: number | null
+  location_lng: number | null
 }
 
 interface ValidateWatchRequest {
@@ -40,24 +42,11 @@ Deno.serve(async (req) => {
       case "validate_watch": {
         const request = data as ValidateWatchRequest
         
-        // Find account by seven_digit_code directly from the schema
+        // Use the get_account_by_wearer_id database function
         const { data: accountData, error: accountError } = await supabaseClient
-          .from('devices')
-          .select(`
-            seven_digit_code,
-            wearer_id,
-            wearers!inner(
-              name,
-              safeloop_account_id,
-              safeloop_accounts!inner(
-                id,
-                account_name
-              )
-            )
-          `)
-          .eq('seven_digit_code', request.wearer_id)
-          .eq('is_verified', true)
-          .single()
+          .rpc('get_account_by_wearer_id', {
+            p_wearer_id: request.wearer_id
+          })
 
         if (accountError) {
           console.error('Error finding account:', accountError)
@@ -70,7 +59,7 @@ Deno.serve(async (req) => {
           )
         }
 
-        if (!accountData) {
+        if (!accountData || accountData.length === 0) {
           console.log('No account found for wearer_id: ' + request.wearer_id)
           return new Response(
             JSON.stringify({ success: false, message: 'No account found for the provided wearer_id' }), 
@@ -81,13 +70,7 @@ Deno.serve(async (req) => {
           )
         }
 
-        const account = {
-          account_id: accountData.wearers.safeloop_accounts.id,
-          account_name: accountData.wearers.safeloop_accounts.account_name,
-          wearer_id: accountData.seven_digit_code,
-          wearer_name: accountData.wearers.name,
-          status: 'active'
-        }
+        const account = accountData[0]
         console.log('Account found: ', account)
         return new Response(
           JSON.stringify({ success: true, message: 'Account found', account: account }), 
@@ -108,7 +91,9 @@ Deno.serve(async (req) => {
               p_wearer_id: request.wearer_id,
               p_event: request.event as 'fall' | 'manual_request',
               p_resolution: request.resolution as 'confirmed' | 'unresponsive' | null,
-              p_location: request.location
+              p_location: request.location,
+              p_location_lat: request.location_lat,
+              p_location_lng: request.location_lng
             })
 
           if (helpRequestError) {
