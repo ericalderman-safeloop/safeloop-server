@@ -76,9 +76,12 @@ This session focused on debugging and fixing database deployment issues for the 
 
 ### Development Commands
 - **Deploy migrations**: `supabase db push -p 3xJIbKzfMJUMACei`
-- **Deploy functions**: `supabase functions deploy wearer-function`
+- **Deploy Edge Functions**: `supabase functions deploy wearer-function`
+- **Deploy Database Functions**: `./supabase/database_functions/deploy.sh [function_name]`
+- **Deploy All DB Functions**: `./supabase/database_functions/deploy.sh all`
 - **Get API keys**: `supabase projects api-keys --project-ref [ref]`
 - **Debug schema**: `supabase db pull` to see actual remote state
+- **Execute SQL queries**: `psql "postgresql://postgres.lxdgwdbgyrfswopxbyjp:3xJIbKzfMJUMACei@aws-0-us-east-2.pooler.supabase.com:5432/postgres" -c "SQL_QUERY"`
 
 ### Database Credentials
 - **Production DB Password**: 3xJIbKzfMJUMACei
@@ -128,6 +131,55 @@ This session focused on debugging and fixing database deployment issues for the 
   - Test functions from service files
   - Temporary test scripts and files
 - **Keep**: Essential error logging and user-facing functionality
+
+### Database Functions Management (July 2025)
+- **Source Code Location**: `/supabase/database_functions/` directory contains all function source files
+- **Deployment Process**: Automated via `./supabase/database_functions/deploy.sh` script
+- **How It Works**:
+  1. Edit function source files in `database_functions/` directory
+  2. Run `./supabase/database_functions/deploy.sh [function_name]` 
+  3. Script automatically creates timestamped migration and deploys to database
+  4. Commit both source file and generated migration to git
+- **All 14 Available Functions** (discovered via SQL query):
+  - `accept_caregiver_invitation` - Accept invitations sent to caregivers
+  - `add_wearer` - Add new wearers to accounts
+  - `assign_caregiver_to_wearer` - Create caregiver-wearer relationships
+  - `create_help_request` - Help request creation with caregiver notifications ✅
+  - `create_safeloop_account` - Create new SafeLoop accounts  
+  - `create_user_on_signup` - User creation on authentication
+  - `delete_wearer_safely` - Safe wearer deletion with cleanup
+  - `get_account_by_wearer_id` - Watch device validation and account lookup ✅
+  - `get_user_safeloop_account_id` - Get account ID for authenticated users
+  - `invite_caregiver` - Send invitations to caregivers
+  - `is_caregiver_admin` - Check if user has admin privileges
+  - `register_device` - Register new watch devices
+  - `update_updated_at_column` - Trigger function for timestamp updates
+  - `verify_device` - Verify watch device registrations
+- **CRITICAL WORKFLOW**: When modifying database functions, ALWAYS use this automated process:
+  1. Edit source file: `supabase/database_functions/[name].sql`
+  2. Deploy: `./supabase/database_functions/deploy.sh [name]`
+  3. Commit: Both source file AND generated migration
+  4. Push: `git push` to share with team
+
+### SQL Query Execution Against Supabase (CRITICAL DEBUG LEARNING)
+- **BEST METHOD - Direct psql Connection**:
+  ```bash
+  psql "postgresql://postgres.lxdgwdbgyrfswopxbyjp:3xJIbKzfMJUMACei@aws-0-us-east-2.pooler.supabase.com:5432/postgres" -c "SELECT version();"
+  ```
+  - **Connection String Format**: `postgresql://postgres.[project-ref]:[password]@aws-0-us-east-2.pooler.supabase.com:5432/postgres`
+  - **Prerequisites**: Install PostgreSQL client with `brew install postgresql`
+  - **Usage**: Can execute any SQL query directly against the database
+- **Alternative Method - Migration + RAISE NOTICE**: 
+  1. Create temporary migration with SQL + `RAISE NOTICE` statements
+  2. Run `supabase db push -p 3xJIbKzfMJUMACei`
+  3. View output in migration logs
+- **Methods that DON'T work**:
+  - Direct REST API calls (no built-in `sql` function)
+  - Wrong connection strings (missing project ref in username)
+- **Key Patterns**: 
+  - Always use full username format: `postgres.[project-ref]`
+  - Use pooler.supabase.com for connections
+  - `-p` flag for non-interactive password with Supabase CLI
 
 ## Reminders
 - **OrbStack**: User needs to start OrbStack if we need to do local operations (per user instruction)
