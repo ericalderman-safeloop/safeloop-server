@@ -140,17 +140,20 @@ This session focused on debugging and fixing database deployment issues for the 
   2. Run `./supabase/database_functions/deploy.sh [function_name]` 
   3. Script automatically creates timestamped migration and deploys to database
   4. Commit both source file and generated migration to git
-- **All 14 Available Functions** (discovered via SQL query):
+- **All 17 Available Functions** (original 14 + 3 new helper functions):
   - `accept_caregiver_invitation` - Accept invitations sent to caregivers
   - `add_wearer` - Add new wearers to accounts
   - `assign_caregiver_to_wearer` - Create caregiver-wearer relationships
-  - `create_help_request` - Help request creation with caregiver notifications ✅
+  - `create_help_request` - Help request creation with caregiver notifications (LEGACY - use Edge Function)
+  - `create_help_request_data` - Helper function for Edge Function - data operations only 🆕
+  - `create_caregiver_invitation_data` - Helper function for Edge Function - data operations only 🆕
   - `create_safeloop_account` - Create new SafeLoop accounts  
   - `create_user_on_signup` - User creation on authentication
   - `delete_wearer_safely` - Safe wearer deletion with cleanup
   - `get_account_by_wearer_id` - Watch device validation and account lookup ✅
+  - `get_caregivers_for_help_request` - Helper function to get caregiver contact info 🆕
   - `get_user_safeloop_account_id` - Get account ID for authenticated users
-  - `invite_caregiver` - Send invitations to caregivers
+  - `invite_caregiver` - Send invitations to caregivers (LEGACY - use Edge Function)
   - `is_caregiver_admin` - Check if user has admin privileges
   - `register_device` - Register new watch devices
   - `update_updated_at_column` - Trigger function for timestamp updates
@@ -160,6 +163,22 @@ This session focused on debugging and fixing database deployment issues for the 
   2. Deploy: `./supabase/database_functions/deploy.sh [name]`
   3. Commit: Both source file AND generated migration
   4. Push: `git push` to share with team
+
+### Edge Functions Management (July 2025)
+- **Source Code Location**: `/supabase/functions/` directory contains Edge Function source files
+- **Deployment Process**: Manual deployment via Supabase CLI
+- **Available Edge Functions**:
+  - `create-help-request` - Creates help requests and sends SMS/push notifications to caregivers 🆕
+  - `invite-caregiver` - Creates caregiver invitations and sends email invitations 🆕
+  - `wearer-function` - Legacy function for wearer operations
+  - `auth-listener` - Authentication event listener
+- **Deployment Commands**:
+  - Single function: `supabase functions deploy [function-name] --project-ref lxdgwdbgyrfswopxbyjp`
+  - All functions: `supabase functions deploy --project-ref lxdgwdbgyrfswopxbyjp`
+- **Architecture Pattern**: Hybrid approach using Edge Functions for external services + database functions for data operations
+  - Edge Functions handle SMS, push notifications, email services
+  - Database functions handle pure data operations with proper security
+  - Edge Functions call helper database functions via `.rpc()` calls
 
 ### SQL Query Execution Against Supabase (CRITICAL DEBUG LEARNING)
 - **BEST METHOD - Direct psql Connection**:
