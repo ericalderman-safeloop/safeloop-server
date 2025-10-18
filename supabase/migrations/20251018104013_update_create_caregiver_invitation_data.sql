@@ -1,3 +1,6 @@
+-- Update create_caregiver_invitation_data function
+-- Generated automatically from supabase/database_functions/create_caregiver_invitation_data.sql
+
 -- create_caregiver_invitation_data function
 -- Helper function for Edge Function - creates invitation data only (no external email)
 
@@ -25,7 +28,7 @@ BEGIN
     invitation_token := encode(digest(p_email || account_id::TEXT || NOW()::TEXT, 'sha256'), 'hex');
     
     -- Get inviter name and account name for email
-    SELECT u.display_name, sa.account_name
+    SELECT u.display_name, sa.name
     INTO inviter_name, safeloop_account_name
     FROM users u
     JOIN safeloop_accounts sa ON sa.id = account_id

@@ -1,3 +1,6 @@
+-- Update create_caregiver_invitation_data function
+-- Generated automatically from supabase/database_functions/create_caregiver_invitation_data.sql
+
 -- create_caregiver_invitation_data function
 -- Helper function for Edge Function - creates invitation data only (no external email)
 
