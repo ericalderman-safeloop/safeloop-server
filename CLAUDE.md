@@ -173,8 +173,9 @@ This session focused on debugging and fixing database deployment issues for the 
   - `wearer-function` - Legacy function for wearer operations
   - `auth-listener` - Authentication event listener
 - **Deployment Commands**:
-  - Single function: `supabase functions deploy [function-name] --project-ref lxdgwdbgyrfswopxbyjp`
-  - All functions: `supabase functions deploy --project-ref lxdgwdbgyrfswopxbyjp`
+  - Single function: `supabase functions deploy [function-name]`
+  - All functions: `supabase functions deploy`
+  - Alternative with project ref: `supabase functions deploy [function-name] --project-ref lxdgwdbgyrfswopxbyjp`
 - **Architecture Pattern**: Hybrid approach using Edge Functions for external services + database functions for data operations
   - Edge Functions handle SMS, push notifications, email services
   - Database functions handle pure data operations with proper security

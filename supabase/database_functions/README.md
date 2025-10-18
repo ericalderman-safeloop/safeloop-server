@@ -70,20 +70,31 @@ git push
 
 ## 📋 Available Functions
 
+### Core Database Functions
 - `accept_caregiver_invitation` - Accepts caregiver invitations and creates user accounts
 - `add_wearer` - Adds new wearers to accounts with device assignment
 - `assign_caregiver_to_wearer` - Creates caregiver-wearer relationships
-- `create_help_request` - Creates help requests and notifies caregivers
 - `create_safeloop_account` - Creates new SafeLoop accounts with initial setup
 - `create_user_on_signup` - Creates user records on authentication signup
 - `delete_wearer_safely` - Safely deletes wearers with proper cleanup
 - `get_account_by_wearer_id` - Validates watch devices and returns account info
 - `get_user_safeloop_account_id` - Gets account ID for authenticated users
-- `invite_caregiver` - Sends invitations to caregivers via email
 - `is_caregiver_admin` - Checks if user has admin privileges in account
 - `register_device` - Registers new watch devices to wearers
 - `update_updated_at_column` - Trigger function for automatic timestamp updates
 - `verify_device` - Verifies watch device registrations and updates status
+
+### Helper Functions for Edge Functions
+- `create_help_request_data` - Helper for create-help-request Edge Function - data operations only
+- `get_caregivers_for_help_request` - Helper to get caregiver contact info for notifications
+- `create_caregiver_invitation_data` - Helper for invite-caregiver Edge Function - data operations only
+
+### 🔄 Edge Functions Integration
+For operations requiring external services (SMS, email, push notifications), use the corresponding Edge Functions:
+- **Help Requests**: Use `/functions/v1/create-help-request` Edge Function
+- **Caregiver Invitations**: Use `/functions/v1/invite-caregiver` Edge Function
+
+Edge Functions call the helper database functions above for data operations while handling external service integrations.
 
 ## 🚨 Important Notes
 
