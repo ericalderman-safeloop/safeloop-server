@@ -119,50 +119,166 @@ serve(async (req) => {
 
 async function sendNotifications(data: NotificationData): Promise<void> {
   const { recipient_user_id, wearer_name, event_type, location } = data
-  
-  // TODO: Implement actual SMS/Push notification services
-  // This is where you would integrate with services like:
-  // - Twilio for SMS
-  // - Firebase Cloud Messaging for push notifications
-  // - Apple Push Notification Service for iOS
-  
-  console.log('📲 [MOCK] Sending SMS/Push notification:', {
-    to: recipient_user_id,
-    message: `🆘 ${event_type === 'fall' ? 'Fall detected' : 'Help requested'} for ${wearer_name}${location ? ` at ${location}` : ''}. Please respond immediately.`,
-    priority: 'critical'
-  })
-  
-  // Example implementation structure:
-  /*
-  // Send SMS via Twilio
-  await fetch('https://api.twilio.com/2010-04-01/Accounts/{AccountSid}/Messages.json', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Basic ${btoa(`${twilioSid}:${twilioToken}`)}`,
-      'Content-Type': 'application/x-www-form-urlencoded'
-    },
-    body: new URLSearchParams({
-      To: caregiver.phone_number,
-      From: twilioPhoneNumber,
-      Body: message
-    })
-  })
 
-  // Send Push Notification via FCM
-  await fetch('https://fcm.googleapis.com/fcm/send', {
-    method: 'POST',
-    headers: {
-      'Authorization': `key=${fcmServerKey}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      to: caregiver.fcm_token,
-      notification: {
-        title: '🆘 Emergency Alert',
-        body: message,
-        priority: 'high'
+  const supabaseClient = createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  )
+
+  // Get user's push tokens
+  const { data: user, error: userError } = await supabaseClient
+    .from('users')
+    .select('apns_token, fcm_token, phone_number, push_notifications_enabled')
+    .eq('id', recipient_user_id)
+    .single()
+
+  if (userError || !user) {
+    console.error('❌ Could not fetch user for notifications:', userError)
+    return
+  }
+
+  const message = `🆘 ${event_type === 'fall' ? 'Fall detected' : 'Help requested'} for ${wearer_name}${location ? ` at ${location}` : ''}. Please respond immediately.`
+
+  // Send iOS push notification if user has APNs token
+  if (user.apns_token && user.push_notifications_enabled) {
+    await sendAPNsNotification(user.apns_token, wearer_name, message, event_type)
+  }
+
+  // Send Android push notification if user has FCM token
+  if (user.fcm_token && user.push_notifications_enabled) {
+    await sendFCMNotification(user.fcm_token, wearer_name, message, event_type)
+  }
+
+  // TODO: Send SMS via Twilio if configured
+  if (user.phone_number) {
+    console.log('📲 [SMS would be sent to]:', user.phone_number)
+  }
+}
+
+async function sendAPNsNotification(
+  deviceToken: string,
+  wearerName: string,
+  message: string,
+  eventType: string
+): Promise<void> {
+  try {
+    const fcmServerKey = Deno.env.get('FCM_SERVER_KEY')
+
+    if (!fcmServerKey) {
+      console.log('⚠️ FCM_SERVER_KEY not configured, skipping iOS push notification')
+      return
+    }
+
+    // Use FCM's HTTP v1 API which supports both iOS and Android
+    // Note: You'll need to configure this in Firebase Console and get the service account key
+    const response = await fetch(
+      `https://fcm.googleapis.com/v1/projects/${Deno.env.get('FIREBASE_PROJECT_ID')}/messages:send`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${fcmServerKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          message: {
+            token: deviceToken,
+            notification: {
+              title: '🆘 SafeLoop Emergency Alert',
+              body: message
+            },
+            apns: {
+              headers: {
+                'apns-priority': '10', // Immediate delivery
+                'apns-push-type': 'alert'
+              },
+              payload: {
+                aps: {
+                  alert: {
+                    title: '🆘 SafeLoop Emergency Alert',
+                    body: message
+                  },
+                  sound: 'default',
+                  badge: 1,
+                  'interruption-level': 'critical', // iOS 15+ critical alerts
+                  'content-available': 1
+                }
+              }
+            },
+            data: {
+              type: 'help_request',
+              wearer_name: wearerName,
+              event_type: eventType
+            }
+          }
+        })
       }
-    })
-  })
-  */
+    )
+
+    if (response.ok) {
+      console.log('✅ iOS push notification sent successfully')
+    } else {
+      const error = await response.text()
+      console.error('❌ Failed to send iOS push notification:', error)
+    }
+  } catch (error) {
+    console.error('❌ Error sending iOS push notification:', error)
+  }
+}
+
+async function sendFCMNotification(
+  deviceToken: string,
+  wearerName: string,
+  message: string,
+  eventType: string
+): Promise<void> {
+  try {
+    const fcmServerKey = Deno.env.get('FCM_SERVER_KEY')
+
+    if (!fcmServerKey) {
+      console.log('⚠️ FCM_SERVER_KEY not configured, skipping Android push notification')
+      return
+    }
+
+    const response = await fetch(
+      `https://fcm.googleapis.com/v1/projects/${Deno.env.get('FIREBASE_PROJECT_ID')}/messages:send`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${fcmServerKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          message: {
+            token: deviceToken,
+            notification: {
+              title: '🆘 SafeLoop Emergency Alert',
+              body: message
+            },
+            android: {
+              priority: 'high',
+              notification: {
+                sound: 'default',
+                priority: 'max',
+                channel_id: 'emergency_alerts'
+              }
+            },
+            data: {
+              type: 'help_request',
+              wearer_name: wearerName,
+              event_type: eventType
+            }
+          }
+        })
+      }
+    )
+
+    if (response.ok) {
+      console.log('✅ Android push notification sent successfully')
+    } else {
+      const error = await response.text()
+      console.error('❌ Failed to send Android push notification:', error)
+    }
+  } catch (error) {
+    console.error('❌ Error sending Android push notification:', error)
+  }
 }
