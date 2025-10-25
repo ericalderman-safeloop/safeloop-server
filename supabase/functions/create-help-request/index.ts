@@ -15,12 +15,6 @@ interface HelpRequestData {
   location_lng?: number;
 }
 
-interface NotificationData {
-  recipient_user_id: string;
-  wearer_name: string;
-  event_type: string;
-  location?: string;
-}
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -74,15 +68,20 @@ serve(async (req) => {
     // Send SMS/Push notifications to caregivers
     if (caregivers && caregivers.length > 0) {
       console.log(`📱 Sending notifications to ${caregivers.length} caregivers`)
-      
+
       for (const caregiver of caregivers) {
         try {
-          await sendNotifications({
-            recipient_user_id: caregiver.user_id,
-            wearer_name: caregiver.wearer_name,
-            event_type: event,
-            location: location
-          })
+          const message = `🆘 ${event === 'fall' ? 'Fall detected' : 'Help requested'} for ${caregiver.wearer_name}${location ? ` at ${location}` : ''}. Please respond immediately.`
+
+          // Send Expo push notification if user has token and notifications enabled
+          if (caregiver.apns_token && caregiver.push_notifications_enabled) {
+            await sendExpoPushNotification(caregiver.apns_token, caregiver.wearer_name, message, event, location)
+          }
+
+          // TODO: Send SMS via Twilio if configured
+          if (caregiver.caregiver_phone) {
+            console.log('📲 [SMS would be sent to]:', caregiver.caregiver_phone)
+          }
         } catch (notificationError) {
           console.error('⚠️ Failed to send notification to caregiver:', caregiver.user_id, notificationError)
           // Continue with other caregivers even if one fails
@@ -117,168 +116,47 @@ serve(async (req) => {
   }
 })
 
-async function sendNotifications(data: NotificationData): Promise<void> {
-  const { recipient_user_id, wearer_name, event_type, location } = data
-
-  const supabaseClient = createClient(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-  )
-
-  // Get user's push tokens
-  const { data: user, error: userError } = await supabaseClient
-    .from('users')
-    .select('apns_token, fcm_token, phone_number, push_notifications_enabled')
-    .eq('id', recipient_user_id)
-    .single()
-
-  if (userError || !user) {
-    console.error('❌ Could not fetch user for notifications:', userError)
-    return
-  }
-
-  const message = `🆘 ${event_type === 'fall' ? 'Fall detected' : 'Help requested'} for ${wearer_name}${location ? ` at ${location}` : ''}. Please respond immediately.`
-
-  // Send iOS push notification if user has APNs token
-  if (user.apns_token && user.push_notifications_enabled) {
-    await sendAPNsNotification(user.apns_token, wearer_name, message, event_type)
-  }
-
-  // Send Android push notification if user has FCM token
-  if (user.fcm_token && user.push_notifications_enabled) {
-    await sendFCMNotification(user.fcm_token, wearer_name, message, event_type)
-  }
-
-  // TODO: Send SMS via Twilio if configured
-  if (user.phone_number) {
-    console.log('📲 [SMS would be sent to]:', user.phone_number)
-  }
-}
-
-async function sendAPNsNotification(
-  deviceToken: string,
+async function sendExpoPushNotification(
+  expoPushToken: string,
   wearerName: string,
   message: string,
-  eventType: string
+  eventType: string,
+  location?: string
 ): Promise<void> {
   try {
-    const fcmServerKey = Deno.env.get('FCM_SERVER_KEY')
-
-    if (!fcmServerKey) {
-      console.log('⚠️ FCM_SERVER_KEY not configured, skipping iOS push notification')
-      return
-    }
-
-    // Use FCM's HTTP v1 API which supports both iOS and Android
-    // Note: You'll need to configure this in Firebase Console and get the service account key
-    const response = await fetch(
-      `https://fcm.googleapis.com/v1/projects/${Deno.env.get('FIREBASE_PROJECT_ID')}/messages:send`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${fcmServerKey}`,
-          'Content-Type': 'application/json'
+    // Expo Push Notification API
+    // Docs: https://docs.expo.dev/push-notifications/sending-notifications/
+    const response = await fetch('https://exp.host/--/api/v2/push/send', {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Accept-Encoding': 'gzip, deflate',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        to: expoPushToken,
+        sound: 'default',
+        title: '🆘 SafeLoop Emergency Alert',
+        body: message,
+        data: {
+          type: 'help_request',
+          wearer_name: wearerName,
+          event_type: eventType,
+          location: location
         },
-        body: JSON.stringify({
-          message: {
-            token: deviceToken,
-            notification: {
-              title: '🆘 SafeLoop Emergency Alert',
-              body: message
-            },
-            apns: {
-              headers: {
-                'apns-priority': '10', // Immediate delivery
-                'apns-push-type': 'alert'
-              },
-              payload: {
-                aps: {
-                  alert: {
-                    title: '🆘 SafeLoop Emergency Alert',
-                    body: message
-                  },
-                  sound: 'default',
-                  badge: 1,
-                  'interruption-level': 'critical', // iOS 15+ critical alerts
-                  'content-available': 1
-                }
-              }
-            },
-            data: {
-              type: 'help_request',
-              wearer_name: wearerName,
-              event_type: eventType
-            }
-          }
-        })
-      }
-    )
+        priority: 'high',
+        channelId: 'emergency', // Android notification channel
+      })
+    })
 
-    if (response.ok) {
-      console.log('✅ iOS push notification sent successfully')
+    const result = await response.json()
+
+    if (result.data && result.data[0]?.status === 'ok') {
+      console.log('✅ Expo push notification sent successfully')
     } else {
-      const error = await response.text()
-      console.error('❌ Failed to send iOS push notification:', error)
+      console.error('❌ Failed to send Expo push notification:', result)
     }
   } catch (error) {
-    console.error('❌ Error sending iOS push notification:', error)
-  }
-}
-
-async function sendFCMNotification(
-  deviceToken: string,
-  wearerName: string,
-  message: string,
-  eventType: string
-): Promise<void> {
-  try {
-    const fcmServerKey = Deno.env.get('FCM_SERVER_KEY')
-
-    if (!fcmServerKey) {
-      console.log('⚠️ FCM_SERVER_KEY not configured, skipping Android push notification')
-      return
-    }
-
-    const response = await fetch(
-      `https://fcm.googleapis.com/v1/projects/${Deno.env.get('FIREBASE_PROJECT_ID')}/messages:send`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${fcmServerKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          message: {
-            token: deviceToken,
-            notification: {
-              title: '🆘 SafeLoop Emergency Alert',
-              body: message
-            },
-            android: {
-              priority: 'high',
-              notification: {
-                sound: 'default',
-                priority: 'max',
-                channel_id: 'emergency_alerts'
-              }
-            },
-            data: {
-              type: 'help_request',
-              wearer_name: wearerName,
-              event_type: eventType
-            }
-          }
-        })
-      }
-    )
-
-    if (response.ok) {
-      console.log('✅ Android push notification sent successfully')
-    } else {
-      const error = await response.text()
-      console.error('❌ Failed to send Android push notification:', error)
-    }
-  } catch (error) {
-    console.error('❌ Error sending Android push notification:', error)
+    console.error('❌ Error sending Expo push notification:', error)
   }
 }
