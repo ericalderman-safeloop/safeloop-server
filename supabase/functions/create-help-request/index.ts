@@ -75,7 +75,7 @@ serve(async (req) => {
 
           // Send Expo push notification if user has token and notifications enabled
           if (caregiver.apns_token && caregiver.push_notifications_enabled) {
-            await sendExpoPushNotification(caregiver.apns_token, caregiver.wearer_name, message, event, location)
+            await sendExpoPushNotification(caregiver.apns_token, caregiver.wearer_name, message, event, request.id, location)
           }
 
           // TODO: Send SMS via Twilio if configured
@@ -121,6 +121,7 @@ async function sendExpoPushNotification(
   wearerName: string,
   message: string,
   eventType: string,
+  helpRequestId: string,
   location?: string
 ): Promise<void> {
   try {
@@ -140,6 +141,7 @@ async function sendExpoPushNotification(
         body: message,
         data: {
           type: 'help_request',
+          help_request_id: helpRequestId,
           wearer_name: wearerName,
           event_type: eventType,
           location: location
