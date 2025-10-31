@@ -1,3 +1,6 @@
+-- Update create_help_request_data function
+-- Generated automatically from supabase/database_functions/create_help_request_data.sql
+
 -- create_help_request_data function
 -- Helper function for Edge Function - creates help request data only (no external notifications)
 
