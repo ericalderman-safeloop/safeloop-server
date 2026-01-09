@@ -23,11 +23,20 @@ This session focused on debugging and fixing database deployment issues for the 
 
 ### 4. **Branch Management for Significant Changes**
 - **Rule**: Before making significant changes to the code, always create a new branch
-- **Process**: 
+- **Process**:
   1. First ask whether to merge the previous branch into main
   2. If yes, merge the previous branch into main first
   3. Then start the new branch from main for the new changes
 - **Correct Approach**: Maintain clean git history and avoid mixing unrelated changes in branches
+
+### 5. **iOS App Network Issues: Check Supabase First**
+- **Rule**: When iOS app reports network connectivity problems, verify Supabase backend is up and running before debugging app-level code
+- **Why**: Network issues often originate from backend problems rather than client-side code
+- **Correct Approach**:
+  1. Check Supabase dashboard status
+  2. Verify Edge Functions are deployed and responding
+  3. Test database connectivity
+  4. Only then investigate iOS app network configuration
 
 ## Technical Learnings
 
