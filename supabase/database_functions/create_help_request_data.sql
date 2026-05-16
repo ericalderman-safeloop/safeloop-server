@@ -43,12 +43,12 @@ BEGIN
         created_at
     )
     VALUES (
-        actual_wearer_id,
-        p_event,
-        p_resolution,
-        p_location_lat,
+        actual_wearer_id, 
+        p_event, 
+        p_resolution, 
+        p_location_lat, 
         p_location_lng,
-        NULL,
+        p_location,
         NOW()
     )
     RETURNING * INTO new_request_record;

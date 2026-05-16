@@ -1,3 +1,8 @@
+-- Update check_help_request_status function
+-- Generated automatically from supabase/database_functions/check_help_request_status.sql
+
+DROP FUNCTION IF EXISTS check_help_request_status(UUID);
+
 CREATE OR REPLACE FUNCTION check_help_request_status(
     p_help_request_id UUID
 )

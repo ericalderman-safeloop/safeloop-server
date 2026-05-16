@@ -1,15 +1,15 @@
 -- get_user_safeloop_account_id function
 -- Exported from Supabase database
 
- CREATE OR REPLACE FUNCTION public.get_user_safeloop_account_id()                   +
-  RETURNS uuid                                                                      +
-  LANGUAGE plpgsql                                                                  +
-  SECURITY DEFINER                                                                  +
- AS $function$                                                                      +
- BEGIN                                                                              +
-     RETURN (SELECT safeloop_account_id FROM users WHERE auth_user_id = auth.uid());+
- END;                                                                               +
- $function$                                                                         +
+ CREATE OR REPLACE FUNCTION public.get_user_safeloop_account_id()
+  RETURNS uuid
+  LANGUAGE plpgsql
+  SECURITY DEFINER
+ AS $function$
+ BEGIN
+     RETURN (SELECT safeloop_account_id FROM users WHERE auth_user_id = auth.uid());
+ END;
+ $function$
  ;
 
 -- Grant permissions
