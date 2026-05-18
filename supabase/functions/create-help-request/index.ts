@@ -74,8 +74,9 @@ serve(async (req) => {
           const message = `🆘 ${event === 'fall' ? 'Fall detected' : 'Help requested'} for ${caregiver.wearer_name}${location ? ` at ${location}` : ''}. Please respond immediately.`
 
           // Send Expo push notification if user has token and notifications enabled
-          if (caregiver.apns_token && caregiver.push_notifications_enabled) {
-            await sendExpoPushNotification(caregiver.apns_token, caregiver.wearer_name, message, event, request.id, location)
+          const pushToken = caregiver.apns_token ?? caregiver.fcm_token
+          if (pushToken && caregiver.push_notifications_enabled) {
+            await sendExpoPushNotification(pushToken, caregiver.wearer_name, message, event, request.id, location)
           }
 
           // TODO: Send SMS via Twilio if configured

@@ -103,9 +103,10 @@ serve(async (req) => {
         // Don't notify the caregiver who resolved it — they already know
         if (caregiver.user_id === resolvedById) continue
 
-        if (caregiver.apns_token && caregiver.push_notifications_enabled) {
+        const pushToken = caregiver.apns_token ?? caregiver.fcm_token
+        if (pushToken && caregiver.push_notifications_enabled) {
           try {
-            await sendExpoPushNotification(caregiver.apns_token, title, body, help_request_id, status)
+            await sendExpoPushNotification(pushToken, title, body, help_request_id, status)
             notificationsSent++
           } catch (err) {
             console.error('⚠️ Push notification failed for', caregiver.user_id, err)

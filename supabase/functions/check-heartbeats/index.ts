@@ -140,6 +140,7 @@ serve(async (req) => {
             caregiver_wearer_assignments!inner (
               users!caregiver_user_id (
                 apns_token,
+                fcm_token,
                 push_notifications_enabled
               )
             )
@@ -155,9 +156,10 @@ serve(async (req) => {
         ?.map((cw: any) => cw.users) ?? []
 
       for (const user of caregiverUsers) {
-        if (user?.apns_token && user?.push_notifications_enabled) {
+        const pushToken = user?.apns_token ?? user?.fcm_token
+        if (pushToken && user?.push_notifications_enabled) {
           await sendExpoPush(
-            user.apns_token,
+            pushToken,
             'SafeLoop Monitoring Stopped',
             `${wearerName}'s fall monitoring may have stopped. Check their watch.`
           )
