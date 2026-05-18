@@ -90,11 +90,11 @@ This session focused on debugging and fixing database deployment issues for the 
 - **Deploy All DB Functions**: `./supabase/database_functions/deploy.sh all`
 - **Get API keys**: `supabase projects api-keys --project-ref [ref]`
 - **Debug schema**: `supabase db pull` to see actual remote state
-- **Execute SQL queries**: `psql "postgresql://postgres.lxdgwdbgyrfswopxbyjp:3xJIbKzfMJUMACei@aws-0-us-east-2.pooler.supabase.com:5432/postgres" -c "SQL_QUERY"`
+- **Execute SQL queries**: `psql "postgresql://postgres.jjrgtwkuqtsfoswdiaxs:3xJIbKzfMJUMACei@aws-1-us-east-2.pooler.supabase.com:5432/postgres" -c "SQL_QUERY"`
 
 ### Database Credentials
 - **Production DB Password**: 3xJIbKzfMJUMACei
-- **Project Ref**: lxdgwdbgyrfswopxbyjp
+- **Project Ref**: jjrgtwkuqtsfoswdiaxs
 
 ## Process Improvements
 

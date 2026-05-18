@@ -9,6 +9,7 @@ const corsHeaders = {
 interface InvitationData {
   email: string;
   safeloop_account_id?: string;
+  wearer_ids?: string[];
 }
 
 interface EmailData {
@@ -33,15 +34,16 @@ serve(async (req) => {
       { global: { headers: { Authorization: authHeader ?? '' } } }
     )
 
-    const { email, safeloop_account_id } = await req.json() as InvitationData
+    const { email, safeloop_account_id, wearer_ids } = await req.json() as InvitationData
 
-    console.log('📧 Creating caregiver invitation:', { email, safeloop_account_id })
+    console.log('📧 Creating caregiver invitation:', { email, safeloop_account_id, wearer_ids })
 
     // Create invitation using helper database function
     const { data: invitation, error: invitationError } = await userClient
       .rpc('create_caregiver_invitation_data', {
         p_email: email,
-        p_safeloop_account_id: safeloop_account_id
+        p_safeloop_account_id: safeloop_account_id,
+        p_wearer_ids: wearer_ids ?? []
       })
 
     if (invitationError) {
@@ -102,39 +104,38 @@ serve(async (req) => {
 async function sendInvitationEmail(data: EmailData): Promise<void> {
   const { to, invitation_token, invited_by_name, account_name } = data
 
-  const apiKey = Deno.env.get('MAILJET_API_KEY')
-  const secretKey = Deno.env.get('MAILJET_SECRET_KEY')
+  const apiKey = Deno.env.get('SENDGRID_API_KEY')
 
-  if (!apiKey || !secretKey) {
-    throw new Error('Mailjet credentials not configured')
+  if (!apiKey) {
+    throw new Error('SendGrid API key not configured')
   }
 
   const deepLink = `safeloop-care://accept-invitation?token=${invitation_token}`
 
-  const response = await fetch('https://api.mailjet.com/v3.1/send', {
+  const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
     method: 'POST',
     headers: {
-      'Authorization': `Basic ${btoa(`${apiKey}:${secretKey}`)}`,
+      'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      Messages: [{
-        From: { Email: 'noreply@safeloop.care', Name: 'SafeLoop' },
-        To: [{ Email: to }],
-        Subject: `You're invited to join ${account_name} on SafeLoop`,
-        HTMLPart: generateInvitationEmailHTML(deepLink, invited_by_name, account_name, to),
-      }]
+      from: { email: 'noreply@safeloop.care', name: 'SafeLoop' },
+      personalizations: [{ to: [{ email: to }] }],
+      subject: `You're invited to join ${account_name} on SafeLoop`,
+      content: [{
+        type: 'text/html',
+        value: generateInvitationEmailHTML(deepLink, invited_by_name, account_name, to),
+      }],
     })
   })
 
-  const result = await response.json()
-
-  if (!response.ok || result.Messages?.[0]?.Status !== 'success') {
-    console.error('❌ Mailjet error:', JSON.stringify(result))
-    throw new Error(`Mailjet send failed: ${result.Messages?.[0]?.Errors?.[0]?.ErrorMessage ?? response.status}`)
+  if (!response.ok) {
+    const errorBody = await response.text()
+    console.error('❌ SendGrid error:', errorBody)
+    throw new Error(`SendGrid send failed: ${response.status} ${errorBody}`)
   }
 
-  console.log('✅ Mailjet invitation sent to', to)
+  console.log('✅ SendGrid invitation sent to', to)
 }
 
 function generateInvitationEmailHTML(deepLink: string, invitedBy: string, accountName: string, recipientEmail: string): string {
