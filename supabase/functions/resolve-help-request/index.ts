@@ -20,36 +20,55 @@ serve(async (req) => {
   }
 
   try {
-    const supabase = createClient(
+    const serviceClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const { help_request_id, status, resolved_by_user_id, notes, wearer_device_id } =
+    const { help_request_id, status, notes, wearer_device_id } =
       await req.json() as ResolvePayload
 
     console.log('🔔 Resolving help request:', { help_request_id, status })
 
+    let resolvedById: string | null = null
+
     // --- Update the help request ---
 
     if (wearer_device_id) {
-      // Watch cancel path — delegate to DB function which verifies device ownership
-      // and appends the cancellation note
-      const { error } = await supabase.rpc('cancel_help_request_from_watch', {
+      // Watch cancel path — DB function verifies device ownership
+      const { error } = await serviceClient.rpc('cancel_help_request_from_watch', {
         p_help_request_id: help_request_id,
         p_wearer_device_id: wearer_device_id
       })
       if (error) throw error
     } else {
-      // Caregiver resolution path
+      // Caregiver resolution path — require authenticated user
+      const authHeader = req.headers.get('Authorization')
+      if (!authHeader) {
+        return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401
+        })
+      }
+
+      const { data: { user }, error: authError } = await serviceClient.auth.getUser(
+        authHeader.replace('Bearer ', '')
+      )
+      if (authError || !user) {
+        return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401
+        })
+      }
+
+      resolvedById = user.id
+
       const updates: Record<string, unknown> = {
         event_status: status,
-        resolved_at: new Date().toISOString()
+        resolved_at: new Date().toISOString(),
+        resolved_by: user.id,
       }
-      if (resolved_by_user_id) updates.resolved_by = resolved_by_user_id
       if (notes !== undefined) updates.notes = notes
 
-      const { error } = await supabase
+      const { error } = await serviceClient
         .from('help_requests')
         .update(updates)
         .eq('id', help_request_id)
@@ -60,7 +79,7 @@ serve(async (req) => {
 
     // --- Get caregivers for notifications ---
 
-    const { data: caregivers, error: caregiversError } = await supabase
+    const { data: caregivers, error: caregiversError } = await serviceClient
       .rpc('get_caregivers_for_help_request', { p_help_request_id: help_request_id })
 
     if (caregiversError) {
@@ -82,7 +101,7 @@ serve(async (req) => {
     if (caregivers && caregivers.length > 0) {
       for (const caregiver of caregivers) {
         // Don't notify the caregiver who resolved it — they already know
-        if (caregiver.user_id === resolved_by_user_id) continue
+        if (caregiver.user_id === resolvedById) continue
 
         if (caregiver.apns_token && caregiver.push_notifications_enabled) {
           try {
