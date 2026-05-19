@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
@@ -13,7 +12,7 @@ interface ResolvePayload {
   wearer_device_id?: string      // watch cancel path
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
@@ -105,7 +104,7 @@ serve(async (req) => {
         const pushToken = caregiver.apns_token ?? caregiver.fcm_token
         if (pushToken && caregiver.push_notifications_enabled) {
           try {
-            await sendExpoPushNotification(pushToken, title, body, help_request_id, status)
+            await sendExpoPushNotification(pushToken, title, body, help_request_id, status, serviceClient, caregiver.user_id)
             notificationsSent++
           } catch (err) {
             console.error('⚠️ Push notification failed for', caregiver.user_id, err)
@@ -135,7 +134,9 @@ async function sendExpoPushNotification(
   title: string,
   body: string,
   helpRequestId: string,
-  status: string
+  status: string,
+  supabaseClient?: ReturnType<typeof createClient>,
+  userId?: string
 ): Promise<void> {
   const response = await fetch('https://exp.host/--/api/v2/push/send', {
     method: 'POST',
@@ -159,7 +160,13 @@ async function sendExpoPushNotification(
   })
 
   const result = await response.json()
-  if (result.data?.[0]?.status !== 'ok') {
+  const ticket = result.data?.[0]
+  if (ticket?.status === 'ok') {
+    // success
+  } else if (ticket?.details?.error === 'DeviceNotRegistered' && supabaseClient && userId) {
+    console.log('⚠️ DeviceNotRegistered — clearing push token for user:', userId)
+    await supabaseClient.from('users').update({ apns_token: null, fcm_token: null }).eq('id', userId)
+  } else {
     console.error('❌ Expo push failed:', result)
   }
 }

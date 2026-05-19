@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
@@ -15,7 +14,7 @@ interface HelpRequestData {
 }
 
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -75,7 +74,7 @@ serve(async (req) => {
           // Send Expo push notification if user has token and notifications enabled
           const pushToken = caregiver.apns_token ?? caregiver.fcm_token
           if (pushToken && caregiver.push_notifications_enabled) {
-            await sendExpoPushNotification(pushToken, caregiver.wearer_name, message, event, request.id, location)
+            await sendExpoPushNotification(pushToken, caregiver.wearer_name, message, event, request.id, location, supabaseClient, caregiver.user_id)
           }
 
 
@@ -119,11 +118,11 @@ async function sendExpoPushNotification(
   message: string,
   eventType: string,
   helpRequestId: string,
-  location?: string
+  location?: string,
+  supabaseClient?: ReturnType<typeof createClient>,
+  userId?: string
 ): Promise<void> {
   try {
-    // Expo Push Notification API
-    // Docs: https://docs.expo.dev/push-notifications/sending-notifications/
     const response = await fetch('https://exp.host/--/api/v2/push/send', {
       method: 'POST',
       headers: {
@@ -144,14 +143,19 @@ async function sendExpoPushNotification(
           location: location
         },
         priority: 'high',
-        channelId: 'emergency', // Android notification channel
+        channelId: 'emergency',
       })
     })
 
     const result = await response.json()
+    const ticket = result.data?.[0]
 
-    if (result.data && result.data[0]?.status === 'ok') {
+    if (ticket?.status === 'ok') {
       console.log('✅ Expo push notification sent successfully')
+    } else if (ticket?.details?.error === 'DeviceNotRegistered' && supabaseClient && userId) {
+      // Token is no longer valid — clear it so future sends don't waste requests
+      console.log('⚠️ DeviceNotRegistered — clearing push token for user:', userId)
+      await supabaseClient.from('users').update({ apns_token: null, fcm_token: null }).eq('id', userId)
     } else {
       console.error('❌ Failed to send Expo push notification:', result)
     }

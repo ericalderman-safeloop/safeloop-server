@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
@@ -80,19 +79,31 @@ async function sendWatchPush(deviceToken: string, message: string): Promise<void
   console.log(`🍎 APNs response: ${apnsRes.status} ${apnsBody}`)
 }
 
-async function sendExpoPush(token: string, title: string, body: string): Promise<void> {
+async function sendExpoPush(
+  token: string,
+  title: string,
+  body: string,
+  supabase?: ReturnType<typeof createClient>,
+  userId?: string
+): Promise<void> {
   const res = await fetch('https://exp.host/--/api/v2/push/send', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ to: token, title, body, sound: 'default' }),
   })
-  const resText = await res.text()
-  console.log(`📱 Expo push response (${res.status}):`, resText)
+  const result = await res.json()
+  const ticket = result.data?.[0]
+  if (ticket?.details?.error === 'DeviceNotRegistered' && supabase && userId) {
+    console.log('⚠️ DeviceNotRegistered — clearing push token for user:', userId)
+    await supabase.from('users').update({ apns_token: null, fcm_token: null }).eq('id', userId)
+  } else {
+    console.log(`📱 Expo push response (${res.status}):`, JSON.stringify(ticket))
+  }
 }
 
 // ---- Main handler ----
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
@@ -138,6 +149,7 @@ serve(async (req) => {
             name,
             caregiver_wearer_assignments!inner (
               users!caregiver_user_id (
+                id,
                 apns_token,
                 fcm_token,
                 push_notifications_enabled
@@ -160,7 +172,9 @@ serve(async (req) => {
           await sendExpoPush(
             pushToken,
             'SafeLoop Monitoring Stopped',
-            `${wearerName}'s fall monitoring may have stopped. Check their watch.`
+            `${wearerName}'s fall monitoring may have stopped. Check their watch.`,
+            supabase,
+            user.id
           )
         }
       }
