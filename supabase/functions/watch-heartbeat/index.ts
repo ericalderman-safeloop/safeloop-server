@@ -26,6 +26,7 @@ Deno.serve(async (req) => {
     const upsertData: Record<string, unknown> = {
       wearer_device_id,
       last_seen: timestamp ?? new Date().toISOString(),
+      alert_sent_at: null, // reset so next stale period triggers a fresh notification
     }
 
     if (push_token) {

@@ -114,12 +114,14 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
-    // Find heartbeats stale >15 min that haven't been alerted in the last 30 min
+    // Find heartbeats stale >15 min that have never been alerted for this stale period.
+    // alert_sent_at is reset to NULL by watch-heartbeat when the watch resumes, so once
+    // we notify we stay silent until the watch comes back online and goes stale again.
     const { data: stale, error } = await supabase
       .from('watch_heartbeats')
       .select('wearer_device_id, push_token, alert_sent_at')
       .lt('last_seen', new Date(Date.now() - 15 * 60 * 1000).toISOString())
-      .or(`alert_sent_at.is.null,alert_sent_at.lt.${new Date(Date.now() - 30 * 60 * 1000).toISOString()}`)
+      .is('alert_sent_at', null)
 
     if (error) throw error
     if (!stale || stale.length === 0) {
