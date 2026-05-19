@@ -43,26 +43,20 @@ serve(async (req) => {
 
     console.log('📍 Receiving location update:', { wearer_id, latitude, longitude })
 
-    // Find the actual wearer UUID from the seven_digit_code
-    const { data: wearerData, error: wearerError } = await supabaseClient
-      .from('wearers')
-      .select('id')
-      .eq('id', (
-        await supabaseClient
-          .from('devices')
-          .select('wearer_id')
-          .eq('seven_digit_code', wearer_id)
-          .eq('is_verified', true)
-          .single()
-      ).data?.wearer_id || '')
+    // Find the actual wearer UUID from the seven_digit_code in a single join
+    const { data: deviceData, error: deviceError } = await supabaseClient
+      .from('devices')
+      .select('wearer_id')
+      .eq('seven_digit_code', wearer_id)
+      .eq('is_verified', true)
       .single()
 
-    if (wearerError || !wearerData) {
+    if (deviceError || !deviceData?.wearer_id) {
       console.error('❌ Wearer not found:', wearer_id)
       throw new Error('Invalid wearer_id')
     }
 
-    const actual_wearer_id = wearerData.id
+    const actual_wearer_id = deviceData.wearer_id
 
     // Find the active help request for this wearer (if not provided)
     let activeHelpRequestId = help_request_id

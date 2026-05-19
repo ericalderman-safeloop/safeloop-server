@@ -58,6 +58,7 @@ serve(async (req) => {
     console.log('✅ Invitation created:', invitationRecord.invitation_id)
 
     // Send email invitation
+    let emailSent = false
     try {
       await sendInvitationEmail({
         to: email,
@@ -65,19 +66,18 @@ serve(async (req) => {
         invited_by_name: invitationRecord.invited_by_name,
         account_name: invitationRecord.account_name
       })
-      
+      emailSent = true
       console.log('📧 Invitation email sent successfully')
-      
     } catch (emailError) {
       console.error('⚠️ Failed to send invitation email:', emailError)
-      // Don't fail the entire request if email fails - invitation is still created
+      // Invitation is still created even if email fails
     }
 
     return new Response(
       JSON.stringify({
         success: true,
         invitation_id: invitationRecord.invitation_id,
-        email_sent: true
+        email_sent: emailSent
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -6,16 +6,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-interface HelpRequest {
-  type: string
-  wearer_id: string
-  event: string
-  resolution: string | null
-  location: string | null
-  location_lat: number | null
-  location_lng: number | null
-}
-
 interface ValidateWatchRequest {
   type: string
   wearer_id: string
@@ -89,52 +79,6 @@ Deno.serve(async (req) => {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           }
         )
-      }
-
-      case "help_request": {
-        const request = data as HelpRequest
-        
-        try {
-          // Create help request using the database function
-          const { data: helpRequestData, error: helpRequestError } = await supabaseClient
-            .rpc('create_help_request', {
-              p_wearer_id: request.wearer_id,
-              p_event: request.event as 'fall' | 'manual_request',
-              p_resolution: request.resolution as 'confirmed' | 'unresponsive' | null,
-              p_location: request.location,
-              p_location_lat: request.location_lat,
-              p_location_lng: request.location_lng
-            })
-
-          if (helpRequestError) {
-            console.error('Error creating help request:', helpRequestError)
-            return new Response(
-              JSON.stringify({ success: false, message: 'Error saving help request' }), 
-              { 
-                status: 500,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-              }
-            )
-          }
-
-          console.log('Help request saved successfully:', helpRequestData)
-          return new Response(
-            JSON.stringify({ success: true, message: 'Help request saved successfully', data: helpRequestData }), 
-            { 
-              status: 200,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-            }
-          )
-        } catch (error) {
-          console.error('Error saving help request:', error)
-          return new Response(
-            JSON.stringify({ success: false, message: 'Error saving help request' }), 
-            { 
-              status: 500,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-            }
-          )
-        }
       }
 
       default:
