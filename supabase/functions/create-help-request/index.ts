@@ -2,7 +2,6 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
@@ -65,7 +64,7 @@ serve(async (req) => {
       console.error('⚠️ Error getting caregivers:', caregiversError)
     }
 
-    // Send SMS/Push notifications to caregivers
+    // Send push notifications to caregivers
     if (caregivers && caregivers.length > 0) {
       console.log(`📱 Sending notifications to ${caregivers.length} caregivers`)
 
@@ -79,10 +78,7 @@ serve(async (req) => {
             await sendExpoPushNotification(pushToken, caregiver.wearer_name, message, event, request.id, location)
           }
 
-          // TODO: Send SMS via Twilio if configured
-          if (caregiver.caregiver_phone) {
-            console.log('📲 [SMS would be sent to]:', caregiver.caregiver_phone)
-          }
+
         } catch (notificationError) {
           console.error('⚠️ Failed to send notification to caregiver:', caregiver.user_id, notificationError)
           // Continue with other caregivers even if one fails

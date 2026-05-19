@@ -3,7 +3,6 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 import { createClient } from "@supabase/supabase-js"
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
@@ -71,10 +70,21 @@ Deno.serve(async (req) => {
         }
 
         const account = accountData[0]
+
+        // If device has not been verified yet, mark it verified now (first pairing).
+        // The 7-digit code is the pairing credential; this is intentional.
+        if (!account.is_verified) {
+          await supabaseClient
+            .from('devices')
+            .update({ is_verified: true, updated_at: new Date().toISOString() })
+            .eq('seven_digit_code', request.wearer_id)
+          console.log('✅ Device verified for the first time:', request.wearer_id)
+        }
+
         console.log('Account found: ', account)
         return new Response(
-          JSON.stringify({ success: true, message: 'Account found', account: account }), 
-          { 
+          JSON.stringify({ success: true, message: 'Account found', account: account }),
+          {
             status: 200,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           }
