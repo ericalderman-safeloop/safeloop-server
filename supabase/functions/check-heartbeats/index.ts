@@ -120,7 +120,7 @@ Deno.serve(async (req) => {
     const { data: stale, error } = await supabase
       .from('watch_heartbeats')
       .select('wearer_device_id, push_token, alert_sent_at')
-      .lt('last_seen', new Date(Date.now() - 15 * 60 * 1000).toISOString())
+      .lt('last_seen', new Date(Date.now() - 12 * 60 * 1000).toISOString())
       .is('alert_sent_at', null)
 
     if (error) throw error

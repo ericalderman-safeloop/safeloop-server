@@ -57,12 +57,24 @@ Deno.serve(async (req) => {
         })
       }
 
-      resolvedById = user.id
+      // resolved_by FK points to public.users.id, not auth.users.id
+      const { data: userRow, error: userLookupError } = await serviceClient
+        .from('users')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .single()
+      if (userLookupError || !userRow) {
+        return new Response(JSON.stringify({ success: false, error: 'User profile not found' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400
+        })
+      }
+
+      resolvedById = userRow.id
 
       const updates: Record<string, unknown> = {
         event_status: status,
         resolved_at: new Date().toISOString(),
-        resolved_by: user.id,
+        resolved_by: userRow.id,
       }
       if (notes !== undefined) updates.notes = notes
 
