@@ -71,10 +71,12 @@ Deno.serve(async (req) => {
         try {
           const message = `🆘 ${event === 'fall' ? 'Fall detected' : 'Help requested'} for ${caregiver.wearer_name}${location ? ` at ${location}` : ''}. Please respond immediately.`
 
-          // Send Expo push notification if user has token and notifications enabled
-          const pushToken = caregiver.apns_token ?? caregiver.fcm_token
-          if (pushToken && caregiver.push_notifications_enabled) {
-            await sendExpoPushNotification(pushToken, caregiver.wearer_name, message, event, request.id, location, supabaseClient, caregiver.user_id)
+          // Send to all unique tokens the caregiver has registered (iOS + Android)
+          if (caregiver.push_notifications_enabled) {
+            const tokens = [...new Set([caregiver.apns_token, caregiver.fcm_token].filter(Boolean))]
+            for (const token of tokens) {
+              await sendExpoPushNotification(token, caregiver.wearer_name, message, event, request.id, location, supabaseClient, caregiver.user_id)
+            }
           }
 
 
