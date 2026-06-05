@@ -114,13 +114,17 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
-    // Find heartbeats stale >15 min that have never been alerted for this stale period.
+    // Find heartbeats stale >45 min that have never been alerted for this stale period.
+    // The watch sends a heartbeat every ~15 min (WKApplicationRefreshBackgroundTask),
+    // but watchOS treats that interval as a hint — real delivery can be delayed when
+    // the watch is charging, idle, or under resource pressure. 45 min lets the watch
+    // miss two background refresh windows before we false-alarm the caregiver.
     // alert_sent_at is reset to NULL by watch-heartbeat when the watch resumes, so once
     // we notify we stay silent until the watch comes back online and goes stale again.
     const { data: stale, error } = await supabase
       .from('watch_heartbeats')
       .select('wearer_device_id, push_token, alert_sent_at')
-      .lt('last_seen', new Date(Date.now() - 12 * 60 * 1000).toISOString())
+      .lt('last_seen', new Date(Date.now() - 45 * 60 * 1000).toISOString())
       .is('alert_sent_at', null)
 
     if (error) throw error
