@@ -1,3 +1,6 @@
+-- Update get_caregivers_for_help_request function
+-- Generated automatically from supabase/database_functions/get_caregivers_for_help_request.sql
+
 -- get_caregivers_for_help_request function
 -- Helper function to get caregiver contact info for notifications
 

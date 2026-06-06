@@ -74,8 +74,12 @@ Deno.serve(async (req) => {
           // Send to all unique tokens the caregiver has registered (iOS + Android)
           if (caregiver.push_notifications_enabled) {
             const tokens = [...new Set([caregiver.apns_token, caregiver.fcm_token].filter(Boolean))]
+            // Per-caregiver sound preference. 'alarm' → bundled siren .caf (loud,
+            // attention-grabbing). 'standard' → system default. Anything
+            // unexpected falls back to the alarm because this is safety-critical.
+            const sound = caregiver.help_request_sound === 'standard' ? 'default' : 'safeloop_alarm.caf'
             for (const token of tokens) {
-              await sendExpoPushNotification(token, caregiver.wearer_name, message, event, request.id, location, supabaseClient, caregiver.user_id)
+              await sendExpoPushNotification(token, caregiver.wearer_name, message, event, request.id, location, supabaseClient, caregiver.user_id, sound)
             }
           }
 
@@ -122,7 +126,8 @@ async function sendExpoPushNotification(
   helpRequestId: string,
   location?: string,
   supabaseClient?: ReturnType<typeof createClient>,
-  userId?: string
+  userId?: string,
+  sound: string = 'default'
 ): Promise<void> {
   try {
     const response = await fetch('https://exp.host/--/api/v2/push/send', {
@@ -134,7 +139,7 @@ async function sendExpoPushNotification(
       },
       body: JSON.stringify({
         to: expoPushToken,
-        sound: 'default',
+        sound,
         title: '🆘 SafeLoop Emergency Alert',
         body: message,
         data: {
