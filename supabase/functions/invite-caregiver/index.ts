@@ -8,6 +8,7 @@ interface InvitationData {
   email: string;
   safeloop_account_id?: string;
   wearer_ids?: string[];
+  invited_user_type?: 'caregiver' | 'caregiver_admin';
 }
 
 interface EmailData {
@@ -32,16 +33,28 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: authHeader ?? '' } } }
     )
 
-    const { email, safeloop_account_id, wearer_ids } = await req.json() as InvitationData
+    const { email: rawEmail, safeloop_account_id, wearer_ids, invited_user_type } = await req.json() as InvitationData
 
-    console.log('📧 Creating caregiver invitation:', { email, safeloop_account_id, wearer_ids })
+    // Email addresses are case-insensitive; the DB function also lowercases,
+    // but normalize here so SendGrid + downstream logging see the same value.
+    const email = (rawEmail ?? '').trim().toLowerCase()
+    const role = invited_user_type ?? 'caregiver'
+    if (role !== 'caregiver' && role !== 'caregiver_admin') {
+      return new Response(
+        JSON.stringify({ success: false, error: 'invited_user_type must be caregiver or caregiver_admin' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      )
+    }
+
+    console.log('📧 Creating caregiver invitation:', { email, safeloop_account_id, wearer_ids, role })
 
     // Create invitation using helper database function
     const { data: invitation, error: invitationError } = await userClient
       .rpc('create_caregiver_invitation_data', {
         p_email: email,
         p_safeloop_account_id: safeloop_account_id,
-        p_wearer_ids: wearer_ids ?? []
+        p_wearer_ids: wearer_ids ?? [],
+        p_invited_user_type: role
       })
 
     if (invitationError) {
