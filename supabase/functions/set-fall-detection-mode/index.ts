@@ -43,35 +43,48 @@ async function createAPNsJWT(teamId: string, keyId: string, privateKeyPem: strin
   return `${sigInput}.${sigBase64}`
 }
 
-async function sendSilentModePush(deviceToken: string, mode: string): Promise<void> {
+async function sendModePush(deviceToken: string, mode: string): Promise<void> {
   const teamId = Deno.env.get('APNS_TEAM_ID')
   const keyId = Deno.env.get('APNS_KEY_ID')
   const privateKey = Deno.env.get('APNS_KEY')
   const bundleId = Deno.env.get('APNS_BUNDLE_ID')
 
   if (!teamId || !keyId || !privateKey || !bundleId) {
-    console.warn('⚠️ APNs not configured — skipping silent mode push')
+    console.warn('⚠️ APNs not configured — skipping mode push')
     return
   }
 
+  // Visible alert push: silent (background) pushes are heavily throttled on
+  // watchOS and frequently never wake the suspended app. A visible alert is
+  // the only reliable way to flip modes "within seconds" of the caregiver
+  // tapping save. content-available: 1 also fires didReceiveRemoteNotification
+  // so the app refetches settings the moment it wakes.
+  const modeLabel = mode === 'custom' ? 'SafeLoop Fall Detection' : 'Apple Fall Detection'
   const jwt = await createAPNsJWT(teamId, keyId, privateKey)
   const apnsRes = await fetch(`https://api.push.apple.com/3/device/${deviceToken}`, {
     method: 'POST',
     headers: {
       'authorization': `bearer ${jwt}`,
-      'apns-push-type': 'background',
-      'apns-priority': '5',
+      'apns-push-type': 'alert',
+      'apns-priority': '10',
       'apns-topic': bundleId,
       'content-type': 'application/json',
     },
     body: JSON.stringify({
-      aps: { 'content-available': 1 },
+      aps: {
+        alert: {
+          title: 'SafeLoop',
+          body: `Switched to ${modeLabel}`,
+        },
+        sound: 'default',
+        'content-available': 1,
+      },
       type: 'fall_mode_changed',
       mode,
     }),
   })
   const apnsBody = await apnsRes.text()
-  console.log(`🍎 APNs silent push: ${apnsRes.status} ${apnsBody}`)
+  console.log(`🍎 APNs mode push: ${apnsRes.status} ${apnsBody}`)
 }
 
 Deno.serve(async (req) => {
@@ -133,7 +146,7 @@ Deno.serve(async (req) => {
         .maybeSingle()
 
       if (heartbeat?.push_token) {
-        await sendSilentModePush(heartbeat.push_token, mode)
+        await sendModePush(heartbeat.push_token, mode)
       } else {
         console.log('ℹ️ No watch push token yet — watch will refetch on next foreground')
       }
