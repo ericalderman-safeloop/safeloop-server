@@ -139,20 +139,18 @@ Deno.serve(async (req) => {
     for (const heartbeat of stale) {
       const deviceId = heartbeat.wearer_device_id
 
-      // 1. Push to watch if we have a token
-      if (heartbeat.push_token) {
-        await sendWatchPush(
-          heartbeat.push_token,
-          'Tap to restart fall monitoring'
-        )
-      }
-
-      // 2. Find caregivers via device → wearer → caregiver_wearers
+      // Look up the wearer up front so we can gate on fall_detection_mode.
+      // In 'apple' mode, our heartbeat gap says nothing about whether Apple's
+      // built-in detection is running — sending "Tap to restart fall monitoring"
+      // would be a false alarm with no action the user can take. We skip
+      // *without* marking alert_sent_at so if the wearer later switches to
+      // 'custom' the next tick will notify them.
       const { data: caregivers } = await supabase
         .from('devices')
         .select(`
           wearers!inner (
             name,
+            fall_detection_mode,
             caregiver_wearer_assignments!inner (
               users!caregiver_user_id (
                 id,
@@ -166,9 +164,24 @@ Deno.serve(async (req) => {
         .eq('seven_digit_code', deviceId)
         .single()
 
-      const wearerName = (caregivers?.wearers as any)?.name ?? 'your wearer'
+      const wearer = (caregivers?.wearers as any)
+      const mode = wearer?.fall_detection_mode ?? 'apple'
+      if (mode !== 'custom') {
+        console.log(`⏭️ Skipping stale-monitoring alert for device ${deviceId}: fall_detection_mode=${mode}`)
+        continue
+      }
 
-      const caregiverUsers = (caregivers?.wearers as any)
+      // Push to watch if we have a token
+      if (heartbeat.push_token) {
+        await sendWatchPush(
+          heartbeat.push_token,
+          'Tap to restart fall monitoring'
+        )
+      }
+
+      const wearerName = wearer?.name ?? 'your wearer'
+
+      const caregiverUsers = wearer
         ?.caregiver_wearer_assignments
         ?.map((cw: any) => cw.users) ?? []
 
@@ -185,7 +198,7 @@ Deno.serve(async (req) => {
         }
       }
 
-      // 3. Mark alert sent
+      // Mark alert sent so we stay quiet until the watch resumes.
       await supabase
         .from('watch_heartbeats')
         .update({ alert_sent_at: new Date().toISOString() })
