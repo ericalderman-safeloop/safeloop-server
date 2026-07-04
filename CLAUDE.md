@@ -84,16 +84,16 @@ This session focused on debugging and fixing database deployment issues for the 
 - **Wearer**: "Test Wearer" (linked to device via proper relationships)
 
 ### Development Commands
-- **Deploy migrations**: `supabase db push -p 3xJIbKzfMJUMACei`
+- **Deploy migrations**: `supabase db push -p "$SAFELOOP_DB_PASSWORD"`
 - **Deploy Edge Functions**: `supabase functions deploy wearer-function`
 - **Deploy Database Functions**: `./supabase/database_functions/deploy.sh [function_name]`
 - **Deploy All DB Functions**: `./supabase/database_functions/deploy.sh all`
 - **Get API keys**: `supabase projects api-keys --project-ref [ref]`
 - **Debug schema**: `supabase db pull` to see actual remote state
-- **Execute SQL queries**: `psql "postgresql://postgres.jjrgtwkuqtsfoswdiaxs:3xJIbKzfMJUMACei@aws-1-us-east-2.pooler.supabase.com:5432/postgres" -c "SQL_QUERY"`
+- **Execute SQL queries**: `psql "postgresql://postgres.jjrgtwkuqtsfoswdiaxs:$SAFELOOP_DB_PASSWORD@aws-1-us-east-2.pooler.supabase.com:5432/postgres" -c "SQL_QUERY"`
 
 ### Database Credentials
-- **Production DB Password**: 3xJIbKzfMJUMACei
+- **Production DB Password**: stored in your local secrets manager; export as `SAFELOOP_DB_PASSWORD` before running any commands in this doc
 - **Project Ref**: jjrgtwkuqtsfoswdiaxs
 
 ## Process Improvements
@@ -193,14 +193,14 @@ This session focused on debugging and fixing database deployment issues for the 
 ### SQL Query Execution Against Supabase (CRITICAL DEBUG LEARNING)
 - **BEST METHOD - Direct psql Connection**:
   ```bash
-  psql "postgresql://postgres.lxdgwdbgyrfswopxbyjp:3xJIbKzfMJUMACei@aws-0-us-east-2.pooler.supabase.com:5432/postgres" -c "SELECT version();"
+  psql "postgresql://postgres.jjrgtwkuqtsfoswdiaxs:$SAFELOOP_DB_PASSWORD@aws-1-us-east-2.pooler.supabase.com:5432/postgres" -c "SELECT version();"
   ```
   - **Connection String Format**: `postgresql://postgres.[project-ref]:[password]@aws-0-us-east-2.pooler.supabase.com:5432/postgres`
   - **Prerequisites**: Install PostgreSQL client with `brew install postgresql`
   - **Usage**: Can execute any SQL query directly against the database
 - **Alternative Method - Migration + RAISE NOTICE**: 
   1. Create temporary migration with SQL + `RAISE NOTICE` statements
-  2. Run `supabase db push -p 3xJIbKzfMJUMACei`
+  2. Run `supabase db push -p "$SAFELOOP_DB_PASSWORD"`
   3. View output in migration logs
 - **Methods that DON'T work**:
   - Direct REST API calls (no built-in `sql` function)

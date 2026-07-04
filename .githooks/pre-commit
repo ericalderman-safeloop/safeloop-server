@@ -1,0 +1,12 @@
+#!/bin/sh
+# Scan staged changes for secrets before allowing a commit.
+# One-time setup (per clone): git config core.hooksPath .githooks
+# Requires: brew install gitleaks
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+    echo "gitleaks not installed. Install with: brew install gitleaks" >&2
+    echo "Then retry your commit." >&2
+    exit 1
+fi
+
+gitleaks protect --staged --redact --verbose

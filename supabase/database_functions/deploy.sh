@@ -11,8 +11,12 @@ BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-# Database password from CLAUDE.md
-DB_PASSWORD="3xJIbKzfMJUMACei"
+# Database password sourced from environment (see CLAUDE.md)
+if [ -z "$SAFELOOP_DB_PASSWORD" ]; then
+    echo -e "${RED}❌ SAFELOOP_DB_PASSWORD is not set. Export it before running this script.${NC}" >&2
+    exit 1
+fi
+DB_PASSWORD="$SAFELOOP_DB_PASSWORD"
 
 echo -e "${BLUE}🔧 SafeLoop Database Functions Deployment${NC}"
 echo "============================================"
