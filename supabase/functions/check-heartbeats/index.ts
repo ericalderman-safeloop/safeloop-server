@@ -148,6 +148,7 @@ Deno.serve(async (req) => {
       const { data: caregivers } = await supabase
         .from('devices')
         .select(`
+          monitoring_state,
           wearers!inner (
             name,
             fall_detection_mode,
@@ -168,6 +169,15 @@ Deno.serve(async (req) => {
       const mode = wearer?.fall_detection_mode ?? 'apple'
       if (mode !== 'custom') {
         console.log(`⏭️ Skipping stale-monitoring alert for device ${deviceId}: fall_detection_mode=${mode}`)
+        continue
+      }
+
+      // Wearer was driving as of their last heartbeat. We intentionally paused
+      // monitoring, so the missing beats are expected — no alarm. When the
+      // wearer resumes normal activity the watch pushes another heartbeat with
+      // monitoring_state=active and this gate clears.
+      if (caregivers?.monitoring_state === 'driving') {
+        console.log(`⏭️ Skipping stale-monitoring alert for device ${deviceId}: monitoring_state=driving`)
         continue
       }
 

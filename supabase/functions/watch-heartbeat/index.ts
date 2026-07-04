@@ -5,6 +5,7 @@ const corsHeaders = {
 }
 
 const VALID_BATTERY_STATES = new Set(['unknown', 'unplugged', 'charging', 'full'])
+const VALID_MONITORING_STATES = new Set(['active', 'driving', 'sos'])
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -12,7 +13,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { wearer_device_id, timestamp, push_token, battery_level, battery_state } = await req.json()
+    const { wearer_device_id, timestamp, push_token, battery_level, battery_state, monitoring_state } = await req.json()
 
     if (!wearer_device_id) {
       return new Response(JSON.stringify({ error: 'wearer_device_id required' }), {
@@ -52,6 +53,9 @@ Deno.serve(async (req) => {
     }
     if (typeof battery_state === 'string' && VALID_BATTERY_STATES.has(battery_state)) {
       deviceUpdate.battery_state = battery_state
+    }
+    if (typeof monitoring_state === 'string' && VALID_MONITORING_STATES.has(monitoring_state)) {
+      deviceUpdate.monitoring_state = monitoring_state
     }
 
     const { error: deviceError } = await supabase
